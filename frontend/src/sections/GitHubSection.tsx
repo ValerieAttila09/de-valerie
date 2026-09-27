@@ -16,6 +16,18 @@ interface GithubRepo {
   updated_at: string;
 }
 
+interface GithubProfile {
+  login: string;
+  name: string | null;
+  avatar_url: string;
+  url: string;
+  public_repos: number;
+  followers: number;
+  following: number;
+  total_stars: number;
+  member_since: string;
+}
+
 interface RepoRow {
   name: string;
   desc: string;
@@ -40,7 +52,24 @@ export function GitHubSection() {
     retry: 1,
   });
 
+  const { data: profile, isError: profileError } = useQuery({
+    queryKey: ["github-profile"],
+    queryFn: () => apiGet<GithubProfile>("/github/profile"),
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
   const live = !isError && !!data && data.length > 0;
+  const showProfile = !profileError && !!profile;
+
+  const stats: Array<[string, string, boolean?]> = showProfile
+    ? [
+        ["Repositories", String(profile!.public_repos)],
+        ["Followers", String(profile!.followers)],
+        ["Following", String(profile!.following)],
+        ["Total Stars", String(profile!.total_stars), true],
+      ]
+    : [];
   const repos: RepoRow[] = live
     ? data!.map((r) => ({
         name: r.name,
@@ -78,6 +107,46 @@ export function GitHubSection() {
           )}
         </p>
       </Reveal>
+      {showProfile && (
+        <Reveal delay={0.1}>
+          <a
+            href={profile!.url}
+            target="_blank"
+            rel="noreferrer"
+            data-testid="github-stats-card"
+            className="group mt-12 block"
+          >
+            <div className="grid grid-cols-2 gap-px border border-line bg-line md:grid-cols-4">
+              {stats.map(([label, value, accent]) => (
+                <div key={label} data-testid={`github-stat-${label.toLowerCase().replace(/\s+/g, "-")}`} className="bg-bg p-6 md:p-8">
+                  <p className="flex items-baseline gap-2 text-3xl font-semibold tracking-tight md:text-5xl">
+                    {accent ? <Star className="size-4 self-center text-accent md:size-6" /> : null}
+                    {value}
+                  </p>
+                  <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
+                    {label}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between border border-t-0 border-line px-6 py-4 font-mono text-[11px] uppercase tracking-[0.22em] text-muted md:px-8">
+              <span className="flex items-center gap-3">
+                <img
+                  src={profile!.avatar_url}
+                  alt={`${profile!.login} GitHub avatar`}
+                  loading="lazy"
+                  className="size-6 rounded-full border border-line"
+                />
+                @{profile!.login}
+              </span>
+              <span className="flex items-center gap-3">
+                Member since {profile!.member_since}
+                <ArrowUpRight className="size-3.5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent" />
+              </span>
+            </div>
+          </a>
+        </Reveal>
+      )}
       <div className="mt-14">
         {repos.map((r) => (
           <Reveal key={r.name}>

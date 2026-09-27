@@ -36,6 +36,10 @@
 - Open Source section: live repo rows (name, language, stars, relative "updated … ago", link to repo), "Pulled live from the GitHub API" indicator with pulse dot, "All repositories on GitHub" profile link; graceful fallback to sample list if the API is unreachable (static-CDN safe).
 - site.ts github URL now points to the real profile (footer/contact/detail links follow).
 
+## Implemented (2026-09-27, iteration 3 — GitHub Stats Card)
+- `GET /api/github/profile`: profile summary of ValerieAttila09 (repos, followers, following, total stars summed across up to 100 public repos, member-since year, avatar), same 10-min Mongo cache + stale fallback pattern.
+- Stats card above the repo list: 4 editorial stat cells (Repositories / Followers / Following / Total Stars with accent star) + strip with avatar, @login and "Member since 2024", whole card links to the GitHub profile. Hidden gracefully if the API is unreachable.
+
 ## Verified
 - `yarn typecheck` clean; `python -c 'import server'` ok.
 - curl: `GET /api/` 200, `POST /api/contact` persists + returns doc, invalid body → 422.

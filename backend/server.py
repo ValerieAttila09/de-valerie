@@ -129,6 +129,62 @@ async def get_github_repos():
             return [GithubRepo(**r) for r in cached["repos"]]
         raise HTTPException(status_code=502, detail="GitHub API unavailable")
 
+class GithubProfile(BaseModel):
+    login: str
+    name: str | None = None
+    avatar_url: str
+    url: str
+    public_repos: int = 0
+    followers: int = 0
+    following: int = 0
+    total_stars: int = 0
+    member_since: str
+
+@api_router.get("/github/profile", response_model=GithubProfile)
+async def get_github_profile():
+    username = os.environ["GITHUB_USERNAME"]
+    now = datetime.now(timezone.utc)
+    cached = await db.github_cache.find_one({"key": "profile"})
+    if cached:
+        fetched_at = cached["fetched_at"].replace(tzinfo=timezone.utc)
+        if (now - fetched_at).total_seconds() < GITHUB_CACHE_TTL_SECONDS:
+            return GithubProfile(**cached["profile"])
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={"Accept": "application/vnd.github+json", "User-Agent": "valerie-portfolio"},
+        ) as http:
+            user_res = await http.get(f"https://api.github.com/users/{username}")
+            user_res.raise_for_status()
+            user = user_res.json()
+            stars_res = await http.get(
+                f"https://api.github.com/users/{username}/repos",
+                params={"per_page": 100, "type": "public"},
+            )
+            stars_res.raise_for_status()
+            total_stars = sum(r.get("stargazers_count", 0) for r in stars_res.json())
+        profile = GithubProfile(
+            login=user["login"],
+            name=user.get("name"),
+            avatar_url=user["avatar_url"],
+            url=user["html_url"],
+            public_repos=user.get("public_repos", 0),
+            followers=user.get("followers", 0),
+            following=user.get("following", 0),
+            total_stars=total_stars,
+            member_since=user["created_at"][:4],
+        )
+        await db.github_cache.update_one(
+            {"key": "profile"},
+            {"$set": {"key": "profile", "fetched_at": now, "profile": profile.model_dump()}},
+            upsert=True,
+        )
+        return profile
+    except Exception:
+        if cached:
+            return GithubProfile(**cached["profile"])
+        raise HTTPException(status_code=502, detail="GitHub API unavailable")
+
 # Include the router in the main app
 app.include_router(api_router)
 
