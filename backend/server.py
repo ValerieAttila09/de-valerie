@@ -1,6 +1,7 @@
 import asyncio
+import httpx
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
@@ -74,6 +75,59 @@ async def create_contact_message(input: ContactCreate):
     message = ContactMessage(**input.model_dump())
     _ = await db.contact_messages.insert_one(message.model_dump())
     return message
+
+class GithubRepo(BaseModel):
+    name: str
+    description: str | None = None
+    language: str | None = None
+    stars: int = 0
+    forks: int = 0
+    url: str
+    updated_at: str
+
+GITHUB_CACHE_TTL_SECONDS = 600
+
+@api_router.get("/github/repos", response_model=List[GithubRepo])
+async def get_github_repos():
+    username = os.environ["GITHUB_USERNAME"]
+    now = datetime.now(timezone.utc)
+    cached = await db.github_cache.find_one({"key": "repos"})
+    if cached:
+        fetched_at = cached["fetched_at"].replace(tzinfo=timezone.utc)
+        if (now - fetched_at).total_seconds() < GITHUB_CACHE_TTL_SECONDS:
+            return [GithubRepo(**r) for r in cached["repos"]]
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={"Accept": "application/vnd.github+json", "User-Agent": "valerie-portfolio"},
+        ) as http:
+            res = await http.get(
+                f"https://api.github.com/users/{username}/repos",
+                params={"sort": "updated", "direction": "desc", "per_page": 6, "type": "public"},
+            )
+            res.raise_for_status()
+            repos = [
+                GithubRepo(
+                    name=r["name"],
+                    description=r.get("description"),
+                    language=r.get("language"),
+                    stars=r.get("stargazers_count", 0),
+                    forks=r.get("forks_count", 0),
+                    url=r["html_url"],
+                    updated_at=r["updated_at"],
+                )
+                for r in res.json()
+            ]
+        await db.github_cache.update_one(
+            {"key": "repos"},
+            {"$set": {"key": "repos", "fetched_at": now, "repos": [r.model_dump() for r in repos]}},
+            upsert=True,
+        )
+        return repos
+    except Exception:
+        if cached:
+            return [GithubRepo(**r) for r in cached["repos"]]
+        raise HTTPException(status_code=502, detail="GitHub API unavailable")
 
 # Include the router in the main app
 app.include_router(api_router)

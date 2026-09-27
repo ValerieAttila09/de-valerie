@@ -30,15 +30,21 @@
 - AI-generated on-brand project/experiment imagery (8 assets).
 - SVG favicon "V." mark matching the wordmark.
 
+## Implemented (2026-09-27, iteration 2 — GitHub Live)
+- `GET /api/github/repos`: fetches 6 most-recently-updated public repos of the real account **ValerieAttila09** via GitHub public API (no token), cached in MongoDB `github_cache` for 10 min, stale-cache fallback on API failure, 502 when no cache.
+- `GITHUB_USERNAME=ValerieAttila09` added to backend/.env.
+- Open Source section: live repo rows (name, language, stars, relative "updated … ago", link to repo), "Pulled live from the GitHub API" indicator with pulse dot, "All repositories on GitHub" profile link; graceful fallback to sample list if the API is unreachable (static-CDN safe).
+- site.ts github URL now points to the real profile (footer/contact/detail links follow).
+
 ## Verified
 - `yarn typecheck` clean; `python -c 'import server'` ok.
 - curl: `GET /api/` 200, `POST /api/contact` persists + returns doc, invalid body → 422.
 - Browser pass via public URL: preloader → hero → work rows → case study navigation → contact form submit shows success toast. Mobile 390px hero + menu checked.
 
 ## Backlog (prioritized)
-- P0: Replace placeholder contact links/email with Valerie's real ones; real project images & copy.
+- P0: Replace placeholder contact email/LinkedIn with real ones; real project images & copy in src/data/*.
 - P1: Live interactive demos inside `/playground/:slug` (particle field & chord synth can run real code in-browser).
-- P1: GitHub section wired to real GitHub API (curated repos, live).
+- P1: Tambahkan deskripsi repo di GitHub agar tidak tampil "No description yet" (di sisi GitHub, bukan kode).
 - P2: Admin inbox page for contact messages (GET endpoint + simple auth).
 - P2: Open Graph share image, sitemap/robots, per-page meta.
 - P2: Lighthouse/performance pass (image preloads, font subsetting).

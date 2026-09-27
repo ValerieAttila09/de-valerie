@@ -5,7 +5,7 @@ export const site = {
   location: "Indonesia",
   year: "2026",
   email: "hello@valerie.dev",
-  github: "https://github.com/valerie",
+  github: "https://github.com/ValerieAttila09",
   linkedin: "https://www.linkedin.com/in/valerie",
   footerStack: "REACT / TYPESCRIPT / MOTION",
 };
